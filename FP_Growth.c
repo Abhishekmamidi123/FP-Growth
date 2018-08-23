@@ -15,25 +15,31 @@ struct transaction_info{
 struct item_and_frequency{
     int frequency;
     char item_name[50];
+    struct node* next;
 };
 
-struct transaction_info trans_info[1000];
-struct transaction_info trans_info_updated[1000];
-struct item_and_frequency item_and_freq[500];
-
-int read_and_store_data();
-int store_unique_items_and_frequencies(int num_of_trans);
-void sort_items_based_on_frequency(int num_of_unique_items);
-int remove_items_based_on_min_support(int num_of_unique_items, int min_support);
-void update_transactions(int num_of_trans, int num_of_items_above_minsup);
-
-int read_and_store_data() {
+struct node{
+    char item_name[50];
+    struct node* parent;
+    struct node* next;
+    int frequency;
+};
+/*
+int read_and_store_data(struct transaction_info trans_info);
+int store_unique_items_and_frequencies(struct transaction_info trans_info, int num_of_trans, struct item_and_frequency item_and_freq);
+void sort_items_based_on_frequency(int num_of_unique_items, struct item_and_frequency item_and_freq);
+int remove_items_based_on_min_support(int num_of_unique_items, struct item_and_frequency item_and_freq, int min_support);
+void update_transactions(struct transaction_info trans_info, int num_of_trans, struct item_and_frequency item_and_freq, int num_of_items_above_minsup, struct transaction_info trans_info_updated);
+struct node* create_node(char item_name[], struct node *parent, struct node *next, int frequency);
+void construct_tree(int num_of_trans, struct item_and_frequency item_and_freq, int num_of_items_above_minsup, struct transaction_info trans_info_updated);
+*/
+int read_and_store_data(struct transaction_info trans_info[]) {
     FILE *fp;
     int i,j,k,num;
     int id, count, flag;
     char ch;
 
-    fp = fopen("groceries_subset.csv","r");
+    fp = fopen("dummy.csv","r");
     if (fp == NULL)
     {
         perror("Error while opening the file.\n");
@@ -85,7 +91,7 @@ int read_and_store_data() {
     return (count + 1);
 }
 
-int store_unique_items_and_frequencies(int num_of_trans){
+int store_unique_items_and_frequencies(struct transaction_info trans_info[], int num_of_trans, struct item_and_frequency item_and_freq[]){
     int k, unique_items_count;
     bool flag;
     unique_items_count = 0;
@@ -103,6 +109,7 @@ int store_unique_items_and_frequencies(int num_of_trans){
             }
             else {
                 item_and_freq[unique_items_count].frequency = 1;
+                item_and_freq[unique_items_count].next = NULL;
                 strcpy(item_and_freq[unique_items_count].item_name, trans_info[i].item_name[j]);
                 unique_items_count += 1;
             }
@@ -111,7 +118,7 @@ int store_unique_items_and_frequencies(int num_of_trans){
     return unique_items_count;
 }
 
-void sort_items_based_on_frequency(int num_of_unique_items) {
+void sort_items_based_on_frequency(int num_of_unique_items, struct item_and_frequency item_and_freq[]) {
     int temp_freq;
     char temp_item_name[50];
     for (int i = 0; i < num_of_unique_items - 1; i++) {
@@ -127,32 +134,19 @@ void sort_items_based_on_frequency(int num_of_unique_items) {
             }
         }
     }
-    /*
-    for (int i = 0; i < num_of_unique_items; i++) {
-        printf("%s %d\n", item_and_freq[i].item_name, item_and_freq[i].frequency);
-    }*/
 }
 
-int remove_items_based_on_min_support(int num_of_unique_items, int min_support) {
+int remove_items_based_on_min_support(int num_of_unique_items, struct item_and_frequency item_and_freq[], int min_support) {
     int counter = 0;
     for (int i = 0; i < num_of_unique_items; i++) {
         if (item_and_freq[i].frequency >= min_support) {
-            /*
-            if (i != counter) {
-                strcpy(item_and_freq[counter].item_name, item_and_freq[i].item_name);
-            }*/
             counter += 1;
         }
     }
-    /*
-    for (int i = 0; i < counter; i++) {
-        printf("%s %d\n", item_and_freq[i].item_name, item_and_freq[i].frequency);
-    }
-    printf("%d\n", counter);*/
     return counter;
 }
 
-void update_transactions(int num_of_trans, int num_of_items_above_minsup){
+void update_transactions(struct transaction_info trans_info[], int num_of_trans, struct item_and_frequency item_and_freq[], int num_of_items_above_minsup, struct transaction_info trans_info_updated[]){
     int flag, count;
     for (int i = 0; i < num_of_trans; i++) {
         count = 0;
@@ -171,23 +165,85 @@ void update_transactions(int num_of_trans, int num_of_items_above_minsup){
     }
 }
 
+struct node* create_node(char item_name[], struct node *parent, struct node *next, int frequency){
+    struct node* p;
+    p = (struct node*) malloc(sizeof(struct node));
+    strcpy(p->item_name, item_name);
+    p->parent = parent;
+    p->next = next;
+    p->frequency = frequency;
+    return p;
+}
+
+void construct_tree(int num_of_trans, struct item_and_frequency item_and_freq[], int num_of_items_above_minsup, struct transaction_info trans_info_updated[]) {
+    struct node *root, *p, *previous;
+    int flag;
+    char item_name[50];
+    item_name[0] = '\0';
+    root = create_node(item_name, NULL, NULL, 0);
+    for (int i = 0; i < num_of_trans; i++) {
+        previous = NULL;
+        for (int j = 0; j < trans_info_updated[i].count; j++) {
+            strcpy(item_name, trans_info_updated[i].item_name[j]);
+            // printf("%s\n", item_name);
+            for (int k = 0; k < num_of_items_above_minsup; k++) {
+                flag = strcmp(item_name, item_and_freq[k].item_name);
+                if (flag == 0) {
+                    if (item_and_freq[k].next == NULL) {
+                        p = create_node(item_and_freq[k].item_name, previous, NULL, 1);
+                        item_and_freq[k].next = p;
+                        previous = p;
+                    }
+                    else {
+                        p = item_and_freq[k].next;
+                        while (0<1) {
+                            if (p->parent == previous) {
+                                p->frequency += 1;
+                                previous = p;
+                                break;
+                            }
+                            else if (p->next == NULL) {
+                                previous = create_node(item_and_freq[k].item_name, previous, NULL, 1);
+                                p->next = previous;
+                                break;
+                            }
+                            p=p->next;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    for (int i = 0; i < num_of_items_above_minsup; i++) {
+        printf("%s ", item_and_freq[i].item_name);
+        p = item_and_freq[i].next;
+        while (p!=NULL) {
+            printf("%d ", p->frequency);
+            p = p->next;
+        }
+        printf("\n");
+    }
+}
+
 int main(char *argv[]){
+    struct transaction_info trans_info[100];
+    struct transaction_info trans_info_updated[100];
+    struct item_and_frequency item_and_freq[300];
     int num_of_trans, num_of_unique_items, num_of_items_above_minsup;
     int min_support = 14;
 
-    num_of_trans = read_and_store_data();
-    num_of_unique_items = store_unique_items_and_frequencies(num_of_trans);
-    sort_items_based_on_frequency(num_of_unique_items);
-    num_of_items_above_minsup = remove_items_based_on_min_support(num_of_unique_items, min_support);
-    update_transactions(num_of_trans, num_of_items_above_minsup);
-    //construct_tree();
+    num_of_trans = read_and_store_data(trans_info);
+    num_of_unique_items = store_unique_items_and_frequencies(trans_info, num_of_trans, item_and_freq);
+    sort_items_based_on_frequency(num_of_unique_items, item_and_freq);
+    num_of_items_above_minsup = remove_items_based_on_min_support(num_of_unique_items, item_and_freq, min_support);
+    update_transactions(trans_info, num_of_trans, item_and_freq, num_of_items_above_minsup, trans_info_updated);
+    construct_tree(num_of_trans, item_and_freq, num_of_items_above_minsup, trans_info_updated);
 
     printf("%d\n", num_of_trans);
     printf("%d\n", num_of_unique_items);
     return 0;
 }
-
-
 
 /*
 for (int i = 0; i < num_of_trans; i++) {
