@@ -3,34 +3,49 @@
 #include<string.h>
 #include<ctype.h>
 #include <stdbool.h>
-#define M 768
+#define NUMBER_OF_TRANSACTIONS 1000
+#define NUMBER_OF_ITEMS 300
+#define MAX_TRANSACTIONS_IN_A_ROW 50
+#define CHAR_LENGTH 30
 
 struct transaction_info{
     int id;
     int count;
-    char item_name[100][50];
+    int item_name[MAX_TRANSACTIONS_IN_A_ROW];
 };
 
 struct item_and_frequency{
     int frequency;
-    char item_name[50];
+    int item_name;
     struct node* next;
 };
 
 struct node{
-    char item_name[50];
+    int item_name;
     struct node* parent;
     struct node* next;
     int frequency;
 };
 
+int unique_items_count;
+char mapper[NUMBER_OF_ITEMS][CHAR_LENGTH];
+
+bool integercmp(int a, int b) {
+    if (a == b) {
+        return 0;
+    }
+    else {
+        return 1;
+    }
+}
+
 int read_and_store_data(struct transaction_info trans_info[]) {
     FILE *fp;
-    int i,j,k,num;
-    int id, count, flag;
-    char ch;
+    int i, j, k, num, id, count, flag, flag1;
+    char ch, item_name[CHAR_LENGTH];
 
-    fp = fopen("dummy.csv","r");
+    unique_items_count = 0;
+    fp = fopen("groceries_subset.csv","r");
     if (fp == NULL)
     {
         perror("Error while opening the file.\n");
@@ -58,18 +73,32 @@ int read_and_store_data(struct transaction_info trans_info[]) {
         }
         // Concatenate all the characters to get the item name.
         else if(isalpha(ch)) {
-            trans_info[count].item_name[flag][0] = ch;
+            item_name[0] = ch;
             j = 1;
             ch = fgetc(fp);
             while (ch != ',' && ch != '\n') {
-                trans_info[count].item_name[flag][j] = ch;
+                item_name[j] = ch;
                 j++;
                 ch = fgetc(fp);
             }
             if (ch == '\n') {
-                trans_info[count].item_name[flag][j-1] = '\0';
+                item_name[j-1] = '\0';
             }
-            trans_info[count].item_name[flag][j] = '\0';
+            item_name[j] = '\0';
+
+            flag1 = 0;
+            for (int k = 0; k < unique_items_count; k++) {
+                if (strcmp(mapper[k], item_name) == 0) {
+                    trans_info[count].item_name[flag] = k;
+                    flag1 = 1;
+                    break;
+                }
+            }
+            if (flag1 == 0) {
+                strcpy(mapper[unique_items_count], item_name);
+                trans_info[count].item_name[flag] = unique_items_count;
+                unique_items_count += 1;
+            }
             flag++;
         }
         // Stop iterating if the pointer is at the end of file(EOF).
@@ -90,7 +119,7 @@ int store_unique_items_and_frequencies(struct transaction_info trans_info[], int
         for (int j = 0; j < trans_info[i].count; j++) {
             flag = 1;
             for (k = 0; k < unique_items_count; k++) {
-                flag = strcmp(trans_info[i].item_name[j], item_and_freq[k].item_name);
+                flag = integercmp(trans_info[i].item_name[j], item_and_freq[k].item_name);
                 if (flag == 0) {
                     break;
                 }
@@ -101,7 +130,7 @@ int store_unique_items_and_frequencies(struct transaction_info trans_info[], int
             else {
                 item_and_freq[unique_items_count].frequency = 1;
                 item_and_freq[unique_items_count].next = NULL;
-                strcpy(item_and_freq[unique_items_count].item_name, trans_info[i].item_name[j]);
+                item_and_freq[unique_items_count].item_name = trans_info[i].item_name[j];
                 unique_items_count += 1;
             }
         }
@@ -110,8 +139,7 @@ int store_unique_items_and_frequencies(struct transaction_info trans_info[], int
 }
 
 void sort_items_based_on_frequency(int num_of_unique_items, struct item_and_frequency item_and_freq[]) {
-    int temp_freq;
-    char temp_item_name[50];
+    int temp_freq, temp_item_name;
     for (int i = 0; i < num_of_unique_items - 1; i++) {
         for (int j = 0; j < num_of_unique_items - i - 1; j++) {
             if (item_and_freq[j].frequency < item_and_freq[j+1].frequency) {
@@ -119,9 +147,9 @@ void sort_items_based_on_frequency(int num_of_unique_items, struct item_and_freq
                 item_and_freq[j].frequency = item_and_freq[j+1].frequency;
                 item_and_freq[j+1].frequency = temp_freq;
 
-                strcpy(temp_item_name, item_and_freq[j].item_name);
-                strcpy(item_and_freq[j].item_name, item_and_freq[j+1].item_name);
-                strcpy(item_and_freq[j+1].item_name, temp_item_name);
+                temp_item_name = item_and_freq[j].item_name;
+                item_and_freq[j].item_name = item_and_freq[j+1].item_name;
+                item_and_freq[j+1].item_name = temp_item_name;
             }
         }
     }
@@ -143,9 +171,9 @@ void update_transactions(struct transaction_info trans_info[], int num_of_trans,
         count = 0;
         for (int j = 0; j < num_of_items_above_minsup; j++) {
             for (int k = 0; k < trans_info[i].count; k++) {
-                flag = strcmp(item_and_freq[j].item_name, trans_info[i].item_name[k]);
+                flag = integercmp(item_and_freq[j].item_name, trans_info[i].item_name[k]);
                 if (flag == 0) {
-                    strcpy(trans_info_updated[i].item_name[count], trans_info[i].item_name[k]);
+                    trans_info_updated[i].item_name[count] = trans_info[i].item_name[k];
                     count += 1;
                     break;
                 }
@@ -156,10 +184,10 @@ void update_transactions(struct transaction_info trans_info[], int num_of_trans,
     }
 }
 
-struct node* create_node(char item_name[], struct node *parent, struct node *next, int frequency){
+struct node* create_node(int item_name, struct node *parent, struct node *next, int frequency){
     struct node* p;
     p = (struct node*) malloc(sizeof(struct node));
-    strcpy(p->item_name, item_name);
+    p->item_name = item_name;
     p->parent = parent;
     p->next = next;
     p->frequency = frequency;
@@ -168,17 +196,15 @@ struct node* create_node(char item_name[], struct node *parent, struct node *nex
 
 void construct_tree(int num_of_trans, struct item_and_frequency item_and_freq[], int num_of_items_above_minsup, struct transaction_info trans_info_updated[]) {
     struct node *root, *p, *previous;
-    int flag;
-    char item_name[50];
-    item_name[0] = '\0';
+    int flag, item_name;
+    item_name = 0;
     root = create_node(item_name, NULL, NULL, 0);
     for (int i = 0; i < num_of_trans; i++) {
         previous = NULL;
         for (int j = 0; j < trans_info_updated[i].count; j++) {
-            strcpy(item_name, trans_info_updated[i].item_name[j]);
-            // printf("%s\n", item_name);
+            item_name = trans_info_updated[i].item_name[j];
             for (int k = 0; k < num_of_items_above_minsup; k++) {
-                flag = strcmp(item_name, item_and_freq[k].item_name);
+                flag = integercmp(item_name, item_and_freq[k].item_name);
                 if (flag == 0) {
                     if (item_and_freq[k].next == NULL) {
                         p = create_node(item_and_freq[k].item_name, previous, NULL, 1);
@@ -206,8 +232,9 @@ void construct_tree(int num_of_trans, struct item_and_frequency item_and_freq[],
             }
         }
     }
+
     for (int i = 0; i < num_of_items_above_minsup; i++) {
-        printf("%s ", item_and_freq[i].item_name);
+        printf("%s ", mapper[item_and_freq[i].item_name]);
         p = item_and_freq[i].next;
         while (p!=NULL) {
             printf("%d ", p->frequency);
@@ -233,9 +260,9 @@ int check_multiple_trees(struct item_and_frequency item_and_freq[], int num_of_i
 }
 
 void fp_growth(struct item_and_frequency header_table[], int index, int min_support) {
-    struct transaction_info trans_info[100];
-    struct transaction_info trans_info_updated[100];
-    struct item_and_frequency item_and_freq[50];
+    struct transaction_info trans_info[NUMBER_OF_TRANSACTIONS];
+    struct transaction_info trans_info_updated[NUMBER_OF_TRANSACTIONS];
+    struct item_and_frequency item_and_freq[NUMBER_OF_ITEMS];
     struct node *pointer, *p;
     int trans_index, count, num_of_trans, flag, count_trans, num_of_unique_items, num_of_items_above_minsup;
 
@@ -248,7 +275,7 @@ void fp_growth(struct item_and_frequency header_table[], int index, int min_supp
         flag = 0;
         while (p != NULL) {
             flag = 1;
-            strcpy(trans_info[trans_index].item_name[count] , p->item_name);
+            trans_info[trans_index].item_name[count] = p->item_name;
             p = p->parent;
             count += 1;
         }
@@ -257,7 +284,7 @@ void fp_growth(struct item_and_frequency header_table[], int index, int min_supp
             trans_index += 1;
             for (int i = 0; i < count_trans - 1; i++) {
                 for (int j = 0; j < count; j++) {
-                    strcpy(trans_info[trans_index].item_name[j], trans_info[trans_index-1].item_name[j]);
+                    trans_info[trans_index].item_name[j] = trans_info[trans_index-1].item_name[j];
                 }
                 trans_info[trans_index].count = count;
                 trans_index += 1;
@@ -269,9 +296,7 @@ void fp_growth(struct item_and_frequency header_table[], int index, int min_supp
 
     for (int i = 0; i < num_of_trans; i++) {
         for (int j = 0; j < trans_info[i].count; j++) {
-            for (int k = 0; trans_info[i].item_name[j][k]!='\0'; k++) {
-                printf("%c ", trans_info[i].item_name[j][k]);
-            }
+            printf("%s ", mapper[trans_info[i].item_name[j]]);
         }
         printf("%d\n", trans_info[i].count);
     }
@@ -285,16 +310,16 @@ void fp_growth(struct item_and_frequency header_table[], int index, int min_supp
     flag = check_multiple_trees(item_and_freq, num_of_items_above_minsup);
     if (flag == 1) {
         for (int index = num_of_items_above_minsup - 1; index >= 0; index--) {
-            printf("===%s===\n", item_and_freq[index].item_name);
+            printf("===%s===\n", mapper[item_and_freq[index].item_name]);
             fp_growth(item_and_freq, index, min_support);
         }
     }
 }
 
-int main(char *argv[]){
-    struct transaction_info trans_info[100];
-    struct transaction_info trans_info_updated[100];
-    struct item_and_frequency item_and_freq[50];
+int main(){
+    struct transaction_info trans_info[NUMBER_OF_TRANSACTIONS];
+    struct transaction_info trans_info_updated[NUMBER_OF_TRANSACTIONS];
+    struct item_and_frequency item_and_freq[NUMBER_OF_ITEMS];
     int num_of_trans, num_of_unique_items, num_of_items_above_minsup;
     int min_support = 2;
 
@@ -305,7 +330,7 @@ int main(char *argv[]){
     update_transactions(trans_info, num_of_trans, item_and_freq, num_of_items_above_minsup, trans_info_updated);
     construct_tree(num_of_trans, item_and_freq, num_of_items_above_minsup, trans_info_updated);
     for (int index = num_of_items_above_minsup - 1; index >= 0; index--) {
-        printf("===%s=== main\n", item_and_freq[index].item_name);
+        printf("===%s=== main\n", mapper[item_and_freq[index].item_name]);
         fp_growth(item_and_freq, index, min_support);
     }
 
@@ -315,14 +340,14 @@ int main(char *argv[]){
 }
 
 /*
-for (int i = 0; i < num_of_trans; i++) {
+for (int i = 0; i < unique_items_count; i++) {
+    printf("%d %s\n", i, mapper[i]);
+}
+for (int i = 0; i < count + 1; i++) {
     printf("id: %d\n", trans_info[i].id);
     for (int j = 0; j < trans_info[i].count; j++) {
-        for (int k = 0; trans_info[i].item_name[j][k]!='\0'; k++) {
-            printf("%c", trans_info[i].item_name[j][k]);
-        }
-        printf("\n");
+        printf("%d ", trans_info[i].item_name[j]);
     }
-    printf("%d\n", trans_info[i].count);
+    printf("\n%d\n", trans_info[i].count);
     printf("\n");
 }*/
