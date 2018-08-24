@@ -3,7 +3,6 @@
 #include<string.h>
 #include<ctype.h>
 #include <stdbool.h>
-
 #define M 768
 
 struct transaction_info{
@@ -218,12 +217,27 @@ void construct_tree(int num_of_trans, struct item_and_frequency item_and_freq[],
     }
 }
 
+int check_multiple_trees(struct item_and_frequency item_and_freq[], int num_of_items_above_minsup){
+    struct node *p;
+    int flag;
+
+    flag = 0;
+    for (int i = 0; i < num_of_items_above_minsup; i++) {
+        p = item_and_freq[i].next;
+        if (p->next != NULL) {
+            flag = 1;
+            break;
+        }
+    }
+    return flag;
+}
+
 void fp_growth(struct item_and_frequency header_table[], int index, int min_support) {
     struct transaction_info trans_info[100];
     struct transaction_info trans_info_updated[100];
     struct item_and_frequency item_and_freq[50];
     struct node *pointer, *p;
-    int trans_index, count, num_of_trans, flag, count_trans;
+    int trans_index, count, num_of_trans, flag, count_trans, num_of_unique_items, num_of_items_above_minsup;
 
     trans_index = 0;
     pointer = header_table[index].next;
@@ -254,16 +268,27 @@ void fp_growth(struct item_and_frequency header_table[], int index, int min_supp
     num_of_trans = trans_index;
 
     for (int i = 0; i < num_of_trans; i++) {
-        printf("id: %d\n", trans_info[i].id);
         for (int j = 0; j < trans_info[i].count; j++) {
             for (int k = 0; trans_info[i].item_name[j][k]!='\0'; k++) {
                 printf("%c ", trans_info[i].item_name[j][k]);
             }
         }
         printf("%d\n", trans_info[i].count);
-        printf("\n");
     }
+    printf("\n");
 
+    num_of_unique_items = store_unique_items_and_frequencies(trans_info, num_of_trans, item_and_freq);
+    sort_items_based_on_frequency(num_of_unique_items, item_and_freq);
+    num_of_items_above_minsup = remove_items_based_on_min_support(num_of_unique_items, item_and_freq, min_support);
+    update_transactions(trans_info, num_of_trans, item_and_freq, num_of_items_above_minsup, trans_info_updated);
+    construct_tree(num_of_trans, item_and_freq, num_of_items_above_minsup, trans_info_updated);
+    flag = check_multiple_trees(item_and_freq, num_of_items_above_minsup);
+    if (flag == 1) {
+        for (int index = num_of_items_above_minsup - 1; index >= 0; index--) {
+            printf("===%s===\n", item_and_freq[index].item_name);
+            fp_growth(item_and_freq, index, min_support);
+        }
+    }
 }
 
 int main(char *argv[]){
@@ -280,11 +305,9 @@ int main(char *argv[]){
     update_transactions(trans_info, num_of_trans, item_and_freq, num_of_items_above_minsup, trans_info_updated);
     construct_tree(num_of_trans, item_and_freq, num_of_items_above_minsup, trans_info_updated);
     for (int index = num_of_items_above_minsup - 1; index >= 0; index--) {
-        printf("===%s===\n", item_and_freq[index].item_name);
+        printf("===%s=== main\n", item_and_freq[index].item_name);
         fp_growth(item_and_freq, index, min_support);
-        break;
     }
-
 
     printf("%d\n", num_of_trans);
     printf("%d\n", num_of_unique_items);
