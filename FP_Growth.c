@@ -45,7 +45,7 @@ int read_and_store_data(struct transaction_info trans_info[]) {
     char ch, item_name[CHAR_LENGTH];
 
     unique_items_count = 0;
-    fp = fopen("groceries_subset.csv","r");
+    fp = fopen("dummy.csv","r");
     if (fp == NULL)
     {
         perror("Error while opening the file.\n");
@@ -232,7 +232,7 @@ void construct_tree(int num_of_trans, struct item_and_frequency item_and_freq[],
             }
         }
     }
-
+    /*
     for (int i = 0; i < num_of_items_above_minsup; i++) {
         printf("%s ", mapper[item_and_freq[i].item_name]);
         p = item_and_freq[i].next;
@@ -241,7 +241,32 @@ void construct_tree(int num_of_trans, struct item_and_frequency item_and_freq[],
             p = p->next;
         }
         printf("\n");
-    }
+    }*/
+}
+
+void combination(int arr[], int data[], int start, int end,
+					int index, int r, int conditioning_items[], int conditioning_count){
+	if (index == r)
+	{
+        for (int i = 0; i <= conditioning_count; i++) {
+            printf("%s ", mapper[conditioning_items[i]]);
+        }
+		for (int j=0; j<r; j++)
+			printf("%s ", mapper[data[j]]);
+		printf("\n");
+		return;
+	}
+
+	for (int i=start; i<=end && end-i+1 >= r-index; i++)
+	{
+		data[index] = arr[i];
+		combination(arr, data, i+1, end, index+1, r, conditioning_items, conditioning_count);
+	}
+}
+
+void printCombination(int arr[], int n, int r, int conditioning_items[], int conditioning_count){
+	int data[r];
+	combination(arr, data, 0, n-1, 0, r, conditioning_items, conditioning_count);
 }
 
 int check_multiple_trees(struct item_and_frequency item_and_freq[], int num_of_items_above_minsup){
@@ -259,7 +284,7 @@ int check_multiple_trees(struct item_and_frequency item_and_freq[], int num_of_i
     return flag;
 }
 
-void fp_growth(struct item_and_frequency header_table[], int index, int min_support) {
+void fp_growth(struct item_and_frequency header_table[], int index, int min_support, int conditioning_items[], int conditioning_count) {
     struct transaction_info trans_info[NUMBER_OF_TRANSACTIONS];
     struct transaction_info trans_info_updated[NUMBER_OF_TRANSACTIONS];
     struct item_and_frequency item_and_freq[NUMBER_OF_ITEMS];
@@ -293,7 +318,7 @@ void fp_growth(struct item_and_frequency header_table[], int index, int min_supp
         pointer = pointer->next;
     }
     num_of_trans = trans_index;
-
+    /*
     for (int i = 0; i < num_of_trans; i++) {
         for (int j = 0; j < trans_info[i].count; j++) {
             printf("%s ", mapper[trans_info[i].item_name[j]]);
@@ -301,6 +326,7 @@ void fp_growth(struct item_and_frequency header_table[], int index, int min_supp
         printf("%d\n", trans_info[i].count);
     }
     printf("\n");
+    */
 
     num_of_unique_items = store_unique_items_and_frequencies(trans_info, num_of_trans, item_and_freq);
     sort_items_based_on_frequency(num_of_unique_items, item_and_freq);
@@ -310,8 +336,25 @@ void fp_growth(struct item_and_frequency header_table[], int index, int min_supp
     flag = check_multiple_trees(item_and_freq, num_of_items_above_minsup);
     if (flag == 1) {
         for (int index = num_of_items_above_minsup - 1; index >= 0; index--) {
-            printf("===%s===\n", mapper[item_and_freq[index].item_name]);
-            fp_growth(item_and_freq, index, min_support);
+            // printf("===%s===\n", mapper[item_and_freq[index].item_name]);
+            conditioning_count += 1;
+            //printf("conditioning_count %d\n", conditioning_count);
+            conditioning_items[conditioning_count] = item_and_freq[index].item_name;
+            for (int i = 0; i <= conditioning_count; i++) {
+                printf("%s ", mapper[conditioning_items[i]]);
+            }
+            printf("\n");
+            fp_growth(item_and_freq, index, min_support, conditioning_items, conditioning_count);
+            conditioning_count -= 1;
+        }
+    }
+    else {
+        int items[NUMBER_OF_ITEMS];
+        for (int i = 0; i < num_of_items_above_minsup; i++) {
+            items[i] = item_and_freq[i].item_name;
+        }
+        for(int r=1; r<=num_of_items_above_minsup; r++){
+                printCombination(items, num_of_items_above_minsup, r, conditioning_items, conditioning_count);
         }
     }
 }
@@ -320,8 +363,8 @@ int main(){
     struct transaction_info trans_info[NUMBER_OF_TRANSACTIONS];
     struct transaction_info trans_info_updated[NUMBER_OF_TRANSACTIONS];
     struct item_and_frequency item_and_freq[NUMBER_OF_ITEMS];
-    int num_of_trans, num_of_unique_items, num_of_items_above_minsup;
-    int min_support = 2;
+    int num_of_trans, num_of_unique_items, num_of_items_above_minsup, conditioning_items[NUMBER_OF_ITEMS], conditioning_count;
+    int min_support = 3;
 
     num_of_trans = read_and_store_data(trans_info);
     num_of_unique_items = store_unique_items_and_frequencies(trans_info, num_of_trans, item_and_freq);
@@ -329,11 +372,20 @@ int main(){
     num_of_items_above_minsup = remove_items_based_on_min_support(num_of_unique_items, item_and_freq, min_support);
     update_transactions(trans_info, num_of_trans, item_and_freq, num_of_items_above_minsup, trans_info_updated);
     construct_tree(num_of_trans, item_and_freq, num_of_items_above_minsup, trans_info_updated);
+    conditioning_count = -1;
     for (int index = num_of_items_above_minsup - 1; index >= 0; index--) {
-        printf("===%s=== main\n", mapper[item_and_freq[index].item_name]);
-        fp_growth(item_and_freq, index, min_support);
+        // printf("===%s=== main\n", mapper[item_and_freq[index].item_name]);
+        conditioning_count += 1;
+        conditioning_items[conditioning_count] = item_and_freq[index].item_name;
+        for (int i = 0; i <= conditioning_count; i++) {
+            printf("%s ", mapper[conditioning_items[i]]);
+        }
+        printf("\n");
+        fp_growth(item_and_freq, index, min_support, conditioning_items, conditioning_count);
+        conditioning_count -= 1;
     }
 
+    printf("\n");
     printf("%d\n", num_of_trans);
     printf("%d\n", num_of_unique_items);
     return 0;
