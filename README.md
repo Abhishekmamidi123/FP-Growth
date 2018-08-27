@@ -4,6 +4,7 @@
 ## Files:
 - [FP_Growth.c](https://github.com/Abhishekmamidi123/FP-Growth/blob/master/FP_Growth.c)
 - [Data set](https://github.com/Abhishekmamidi123/FP-Growth/blob/master/groceries_subset.csv) - This csv file contains 1000 transactions.
+- [Assignment Report](https://github.com/Abhishekmamidi123/FP-Growth/blob/master/Assignment_Report.pdf)
 
 ## Language:
 - C.
